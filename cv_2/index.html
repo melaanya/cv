@@ -1,0 +1,33 @@
+<!doctype html>
+<script type="text/javascript" src="data.js"></script>
+<link rel="stylesheet" type="text/css" href="style.css">
+<html>
+	<head>
+		<title> Transformator </title>
+        <meta charset='utf-8' />
+	</head>
+	<body onload = "init()">
+		<div class = "container">
+			<div class  = "title_holder">
+				<p> EXAMPLE IMAGE: </p>
+				<p> RESULT IMAGE: </p>
+			</div>
+			<div class  = "canvas_holder">
+				<canvas height='320' width='480' id='canvas'> </canvas> 
+				<canvas height='320' width='480' id='canvas'> </canvas>
+			</div>
+			<div class = "button_holder">
+				<input type = "file" name = "fileChooser" id = "fileChooser" accept = "image/png, image/jpeg">
+				<div onclick = "clearImage()"> clear image </div>
+				<div onclick = "histomake(img_data.data, img_width, img_height)"> histograms  </div>
+				<div onclick = "deselect()"> deselect  </div>
+				<div onclick = "reselect()"> reselect  </div>
+			</div>
+			<div id = "histo_container">
+			</div>
+		</div>
+		
+	</body>
+
+
+</html>

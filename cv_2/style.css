@@ -1,0 +1,61 @@
+@font-face {
+  font-family: 'UniSansHeavy';
+  src: url('./fonts/Uni Sans Heavy.otf');
+}
+
+.container {
+	font-family: 'UniSansHeavy', sans-serif;
+	margin: 0 auto;
+	width: 1000px;
+	background-color: #FFE5B4;
+}
+
+.title_holder p {
+	color: #22d1ad;
+	padding-top: 30px;
+	padding-left: 150px;
+	font-size: 20px;
+	border: 1px solid black; 
+	text-align: center;
+}
+
+.container img {
+	display: inline-block;
+	align-content: right;
+}
+
+#fileChooser {
+	margin-left: 25px;
+}
+
+canvas { 
+	margin: 0 auto;
+    display: block;
+	border: 1px solid black; 
+}
+
+.button_holder, .canvas_holder, .title_holder {
+	display: flex;
+	margin-bottom: 25px;
+	justify-content: space-between;
+}
+
+.button_holder, .title_holder {
+	margin-right: 25px;
+}
+
+
+.button_holder div {
+	background-color: #22d1ad;
+	font-size: 15px;
+	padding: 15px 15px;
+	cursor: pointer;
+	color: #FFFFFF;
+}
+
+#histo_container {
+	display: flex;
+	justify-content: space-between;
+}
+
+
