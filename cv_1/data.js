@@ -29,15 +29,6 @@ const histomake = (data, width, height) => {
 		blue_2[data[k]]++;
 	}
 
-	// console.log(blue.reduce((a,b) => a + b))
-	// console.log(blue_2.reduce((a,b) => a + b))
-	// console.log(width* height);
-
-	// console.log(data.slice(0, 100));
-	console.log(blue);
-	// console.log(red);
-	// console.log(green);
-	// console.log(blue_2);
 	drawBarChart(red, "rgb(255, 0, 0)", 300, 150);
 	drawBarChart(green, "rgb(0, 255, 0)", 300, 150);
 	drawBarChart(blue, "rgb(0, 0, 255)", 300, 150);
@@ -47,7 +38,6 @@ function drawBarChart(arr, pencil, width, height) {
 	var max = Math.max.apply(null, arr);
 	var y_point = max / height;
 	var x_point = width / 256;
-	// console.log(max, x_point, y_point);
 
 	histo = document.createElement('canvas');
 	histo.setAttribute('height', height);
@@ -111,9 +101,6 @@ function clearImage() {
 
 function init() {
 	var canvas = document.getElementById("canvas");
-	var isDrawing = false;
-	var lastClickedX = -1;
-	var lastClickedY = -1;
 
 	if (canvas.getContext) {
 		ctx = canvas.getContext('2d');

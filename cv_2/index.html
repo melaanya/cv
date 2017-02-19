@@ -13,15 +13,17 @@
 				<p> RESULT IMAGE: </p>
 			</div>
 			<div class  = "canvas_holder">
-				<canvas height='320' width='480' id='canvas'> </canvas> 
-				<canvas height='320' width='480' id='canvas'> </canvas>
+				<canvas height='320' width='480' id='canvas_spoiled'> </canvas> 
+				<canvas height='320' width='480' id='canvas_correct'> </canvas>
 			</div>
+
+				<input type = "file" name = "fileChooser_spoiled" id = "fileChooser_spoiled" accept = "image/png, image/jpeg">
+				<input type = "file" name = "fileChooser_correct" id = "fileChooser_correct" accept = "image/png, image/jpeg">
 			<div class = "button_holder">
-				<input type = "file" name = "fileChooser" id = "fileChooser" accept = "image/png, image/jpeg">
-				<div onclick = "clearImage()"> clear image </div>
-				<div onclick = "histomake(img_data.data, img_width, img_height)"> histograms  </div>
+				<div onclick = "clearImage()"> base color </div>
+				<!-- <div onclick = "histomake(img_data.data, img_width, img_height)"> histograms  </div>
 				<div onclick = "deselect()"> deselect  </div>
-				<div onclick = "reselect()"> reselect  </div>
+				<div onclick = "reselect()"> reselect  </div> -->
 			</div>
 			<div id = "histo_container">
 			</div>
