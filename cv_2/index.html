@@ -17,10 +17,16 @@
 				<canvas height='320' width='480' id='canvas_correct'> </canvas>
 			</div>
 
-				<input type = "file" name = "fileChooser_spoiled" id = "fileChooser_spoiled" accept = "image/png, image/jpeg">
-				<input type = "file" name = "fileChooser_correct" id = "fileChooser_correct" accept = "image/png, image/jpeg">
+			<input type = "file" name = "fileChooser_spoiled" id = "fileChooser_spoiled" accept = "image/png, image/jpeg">
+			<input type = "file" name = "fileChooser_correct" id = "fileChooser_correct" accept = "image/png, image/jpeg">
+			<select id = "functionSelect">
+				<option value = '1'> f1 </option>
+			</select>
 			<div class = "button_holder">
-				<div onclick = "clearImage()"> base color </div>
+				<div onclick = "correctionWithBaseColor()"> base color </div>
+				<div onclick = "greyWorld()">  grey World </div>
+				<div onclick = "funcTransform()">  func transform </div>
+				<div onclick = "removeEvents()"> remove all </div>
 				<!-- <div onclick = "histomake(img_data.data, img_width, img_height)"> histograms  </div>
 				<div onclick = "deselect()"> deselect  </div>
 				<div onclick = "reselect()"> reselect  </div> -->
