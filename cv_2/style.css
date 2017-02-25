@@ -36,10 +36,21 @@ canvas {
 	border: 1px solid black; 
 }
 
+p {
+	color: #333333;
+	font-size: 14px;
+}
+
+input {
+	margin-left: 10px;
+}
+
 .button_holder, .canvas_holder, .title_holder {
 	display: flex;
+	list-style: none;
 	margin-bottom: 25px;
-	justify-content: space-between;
+	justify-content: space-around;
+	flex-wrap: wrap;
 }
 
 .button_holder, .title_holder {
@@ -51,6 +62,7 @@ canvas {
 
 .button_holder div {
 	background-color: #22d1ad;
+	margin-top: 15px;
 	font-size: 15px;
 	padding: 15px 15px;
 	cursor: pointer;

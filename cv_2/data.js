@@ -1,7 +1,115 @@
 var background = "#FFE5B4";
+var background_histo = "#FFFFFF";
 
 var img_width = 0; 
 var img_height = 0;
+var gl_c = 0, gl_gamma = 0;
+
+var histo_width = 300;
+var histo_height = 150;
+
+var data_copy = [];
+
+const histoBrightness = (data, width, height) => {
+	var b = new Array(256).fill(0);
+
+	// statistics
+	for (var i = 0; i < width; ++i) {
+		for (var j = 0; j < height; ++j) {
+			cur = (i * height + j) * 4;
+			var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
+			b[parseInt(hsv[2])]++;
+		}
+	}
+	return b;
+}
+
+function histoEqualization(data) {
+	var h = histoBrightness(data, img_width, img_height);
+	for (var i = 0; i < 256; ++i) {
+		h[i] = h[i] / img_width / img_height * 255;
+	}
+	for (var i = 1; i < 256; ++i) {
+		h[i] = h[i - 1] + h[i];
+	}
+
+	for (var i = 0; i < img_width; ++i) {
+		for (var j = 0; j < img_height; ++j) {
+			cur = (i * img_height + j) * 4;
+			var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
+			hsv[2] =  h[hsv[2]];
+			var rgb = HSVtoRGB(hsv[0], hsv[1], hsv[2]);
+			data[cur] = rgb[0];
+			data[cur + 1] = rgb[1];
+			data[cur + 2] = rgb[2];
+		}
+	}
+
+	return data;
+}
+
+function clearHisto() {
+	var paras = document.getElementsByClassName('histogram');
+	while (paras[0]) {
+	    paras[0].parentNode.removeChild(paras[0]);
+	};
+}
+
+function histoNormalization(data) {
+	var max = Number.MIN_VALUE, min = Number.MAX_VALUE;
+	for (var i = 0; i < img_width; ++i) {
+		for (var j = 0; j < img_height; ++j) {
+			cur = (i * img_height + j) * 4;
+			var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
+			if (hsv[2] < min) {
+				min = hsv[2];
+			}
+			if (hsv[2] > max) {
+				max = hsv[2];
+			}
+		}
+	}
+
+	for (var i = 0; i < img_width; ++i) {
+		for (var j = 0; j < img_height; ++j) {
+			cur = (i * img_height + j) * 4;
+			var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
+			hsv[2] = linear(hsv[2], min, max, 255);
+			var rgb = HSVtoRGB(hsv[0], hsv[1], hsv[2]);
+			data[cur] = rgb[0];
+			data[cur + 1] = rgb[1];
+			data[cur + 2] = rgb[2];
+		}
+	}
+	return data;
+}
+
+function drawBarChart(arr, pencil, width, height) {
+	var max = Math.max.apply(null, arr);
+	var y_point = max / height;
+	var x_point = width / 256;
+
+	histo = document.createElement('canvas');
+	histo.setAttribute('height', height);
+	histo.setAttribute('width', width);
+	histo.setAttribute('class', 'histogram');
+
+	hist_ctx = histo.getContext('2d');
+	hist_ctx.fillStyle = background_histo;
+	hist_ctx.fillRect(0, 0, histo.width, histo.height);
+	hist_ctx.fillStyle = pencil;
+
+	for (var i = 0; i < 256; ++i) {
+		for (var k = i * x_point; k < (i + 1) * x_point; ++k) {
+			for (var j = height; j > height - arr[i] / y_point; --j) {
+				hist_ctx.fillRect(k, j, 1, 1);
+			}
+		}
+	}
+
+	container = document.getElementById("histo_container");
+	container.appendChild(histo);
+}
 
 
 function canvasInit(name) {
@@ -19,6 +127,12 @@ function canvasInit(name) {
 	}
 }
 
+function getImageBack() {
+	var canvas = document.getElementById("canvas_spoiled");
+	ctx = canvas.getContext('2d');
+	ctx.putImageData(data_copy, 0, 0);
+}
+
 function loadAndDrawImage(url, name)
 {
 	var canvas = document.getElementById(name);
@@ -31,6 +145,9 @@ function loadAndDrawImage(url, name)
     	ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         ctx.drawImage(image, 0, 0);
         var imageData = ctx.getImageData(0, 0, image.width, image.height);
+        if (name == "canvas_spoiled") {
+        	data_copy = imageData;
+        }
 		img_width = image.width;
 		img_height = image.height;
     }
@@ -124,24 +241,188 @@ function greyWorld() {
 	ctx.putImageData(data_full, 0, 0);
 }
 
-function brightnessChange(data, fun) {
+function RGBtoHSV (r, g, b) {
+	var max = Math.max(r, g, b);
+	var min = Math.min(r, g, b);
+
+	v = max;
+	s = 0;
+	if (max != 0) {
+		s = 1 - min / max;
+	}
+
+	h = 0;
+	if (max == min) {
+		return [h, s, v]
+	}
+	else {
+		if (max == r) {
+			h = 60 * (g - b) / (max - min);
+			if (g < b) {
+				h += 360;
+			}
+		}
+		else if (max == g) {
+			h = 60 * (b - r) / (max - min) + 120;
+		}
+		else {
+			h = 60 * (r - g) / (max - min) + 240;
+		}
+
+		return [h, s, v];
+	}
+}
+
+
+function HSVtoRGB(h, s, v) {
+	h_i = Math.floor(h / 60) % 6;
+	f = h / 60 - Math.floor(h / 60);
+	p = v * (1 - s);
+	q = v * (1 - f *s);
+	t = v * (1 - (1 - f) * s);
+	switch (h_i) {
+		case 0:
+			return [v, t, p];
+		case 1: 
+			return [q, v, p];
+		case 2:
+			return [p, v, t];
+		case 3:
+			return [p, q, v];
+		case 4:
+			return [t, p, v];
+		case 5:
+			return [v, p, q];
+	}
+}
+
+function brightnessChange(data_full, fun) {
+	var data = data_full.data;
+
+	if (fun.length == 4) {  // if linear transformation
+		var max = Number.MIN_VALUE, min = Number.MAX_VALUE;
+		for (var i = 0; i < img_width; ++i) {
+			for (var j = 0; j < img_height; ++j) {
+				cur = (i * img_height + j) * 4;
+				var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
+				if (hsv[2] < min) {
+					min = hsv[2];
+				}
+				if (hsv[2] > max) {
+					max = hsv[2];
+				}
+			}
+		}	
+	}
 
 	for (var i = 0; i < img_width; ++i) {
 		for (var j = 0; j < img_height; ++j) {
 			cur = (i * img_height + j) * 4;
-			var b = Math.max(data[cur], data[cur + 1], data[cur + 2]); 
-			var num_b = 0;
+			var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
+			if (fun.length == 4) { // if linear transformation
+				hsv[2] = fun(hsv[2], min, max, 255);
+			}
+			else if (fun.length == 3) { // if gamma transformation
+				hsv[2] = fun(hsv[2], gl_c, gl_gamma);
+			}
+			else {
+				hsv[2] = fun(hsv[2], gl_c);
+			}
+			var rgb = HSVtoRGB(hsv[0], hsv[1], hsv[2]);
+			data[cur] = rgb[0];
+			data[cur + 1] = rgb[1];
+			data[cur + 2] = rgb[2];
 		}
 	}
+
+	return data_full;
+}
+
+function linear(arg, min, max, c) {
+	return  c * (arg - min) / (max - min) + min;
+}
+
+function logTrans(arg, c) {  // TODO: add parameter c
+	return c * Math.log(arg + 1);  // c = 25 - visible
+}
+
+function gammaTrans(arg, c, gamma) {
+	return c * Math.pow(arg, gamma);
+}
+
+function c_change() {
+	gl_c = parseInt(document.getElementById("cSelect").value);
+	// console.log(gl_c);
+	getImageBack();
+	funcTransform();
+}
+
+function gamma_change() {
+	gl_gamma = parseFloat(document.getElementById("gammaSelect").value);
+	// console.log(gl_gamma);
+	getImageBack();
+	funcTransform();
 }
 
 function funcTransform() {
-	// brightness - max of rgb
+	var canvas = document.getElementById("canvas_spoiled");
+	var data_full = getData("canvas_spoiled");
+
 	var sel = document.getElementById("functionSelect");
-	var curFun = parseInt(sel.options[sel.selectedIndex].value);
-	console.log(curFun);
+	var curFun = sel.options[sel.selectedIndex].value;
+	var transform;
 
 
+	if (curFun == "linear") {
+		transform = Function("y", "min", "max", "c", "return linear(y, min, max, c);");
+	}
+	else if (curFun == "gammaTrans") {
+			transform = Function("y", "c", "gamma", "return gammaTrans(y, c, gamma);");
+		}
+		else {
+			transform = Function("y", "c", "return logTrans(y, c);");
+		}
+
+	data_full = brightnessChange(data_full, transform);
+
+	ctx = canvas.getContext('2d');
+	ctx.putImageData(data_full, 0, 0);
+}
+
+function normalization() {
+	clearHisto();
+	var canvas = document.getElementById("canvas_spoiled");
+	var data_full = getData("canvas_spoiled");
+	var data = data_full.data;
+
+	statBefore = histoBrightness(data, img_width, img_height);
+	drawBarChart(statBefore, "#000000", histo_width, histo_height);
+	data = histoNormalization(data);
+
+	statAfter = histoBrightness(data, img_width, img_height);
+	drawBarChart(statAfter, "#000000", histo_width, histo_height);
+
+
+	ctx = canvas.getContext('2d');
+	ctx.putImageData(data_full, 0, 0);
+}
+
+function equalization() {
+	clearHisto();
+	var canvas = document.getElementById("canvas_spoiled");
+	var data_full = getData("canvas_spoiled");
+	var data = data_full.data;
+
+	statBefore = histoBrightness(data, img_width, img_height);
+	drawBarChart(statBefore, "#000000", histo_width, histo_height);
+
+	data = histoEqualization(data);
+
+	statAfter = histoBrightness(data, img_width, img_height);
+	drawBarChart(statAfter, "#000000", histo_width, histo_height);
+
+	ctx = canvas.getContext('2d');
+	ctx.putImageData(data_full, 0, 0);
 }
 
 function getData(name) {

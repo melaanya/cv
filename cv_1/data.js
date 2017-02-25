@@ -12,8 +12,7 @@ const histomake = (data, width, height) => {
 	clearHisto();
 	var red = new Array(256).fill(0),
 		green = new Array(256).fill(0),
-		blue = new Array(256).fill(0),
-		blue_2 = new Array(256).fill(0);
+		blue = new Array(256).fill(0);
 
 	// statistics
 	for (var i = 0; i < width; ++i) {
@@ -24,11 +23,7 @@ const histomake = (data, width, height) => {
 			blue[data[cur + 2]]++;
 		}
 	}
-
-	for (var k = 2; k < height * width * 4; k += 4) {
-		blue_2[data[k]]++;
-	}
-
+	
 	drawBarChart(red, "rgb(255, 0, 0)", 300, 150);
 	drawBarChart(green, "rgb(0, 255, 0)", 300, 150);
 	drawBarChart(blue, "rgb(0, 0, 255)", 300, 150);

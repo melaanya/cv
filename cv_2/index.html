@@ -9,8 +9,8 @@
 	<body onload = "init()">
 		<div class = "container">
 			<div class  = "title_holder">
+				<p> PROBLEM IMAGE: </p>
 				<p> EXAMPLE IMAGE: </p>
-				<p> RESULT IMAGE: </p>
 			</div>
 			<div class  = "canvas_holder">
 				<canvas height='320' width='480' id='canvas_spoiled'> </canvas> 
@@ -19,14 +19,21 @@
 
 			<input type = "file" name = "fileChooser_spoiled" id = "fileChooser_spoiled" accept = "image/png, image/jpeg">
 			<input type = "file" name = "fileChooser_correct" id = "fileChooser_correct" accept = "image/png, image/jpeg">
-			<select id = "functionSelect">
-				<option value = '1'> f1 </option>
+			<select id = "functionSelect"> 
+				<option value = 'linear'> linear </option>
+				<option value = 'logTrans'> log </option>
+				<option value = 'gammaTrans'> gamma </option>
 			</select>
+			<p class = "ranges">  &nbsp &nbsp Gamma  &nbsp &nbsp &nbsp <input type="number" min="0.1" max="4" step="0.2" value="0.1" id ="gammaSelect" oninput = "gamma_change()"> &nbsp &nbsp &nbsp
+			C  &nbsp &nbsp &nbsp 1 <input type="range" min="1" max="100" step="1" value="1" id ="cSelect" oninput = "c_change()" > 100 </p>
 			<div class = "button_holder">
 				<div onclick = "correctionWithBaseColor()"> base color </div>
 				<div onclick = "greyWorld()">  grey World </div>
 				<div onclick = "funcTransform()">  func transform </div>
 				<div onclick = "removeEvents()"> remove all </div>
+				<div onclick = "getImageBack()"> erase transformations </div>
+				<div onclick = "normalization()"> normalization </div>
+				<div onclick = "equalization()"> equalization </div>
 				<!-- <div onclick = "histomake(img_data.data, img_width, img_height)"> histograms  </div>
 				<div onclick = "deselect()"> deselect  </div>
 				<div onclick = "reselect()"> reselect  </div> -->
