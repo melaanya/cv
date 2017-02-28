@@ -10,7 +10,7 @@
 	background-color: #FFE5B4;
 }
 
-.title_holder p {
+.container p {
 	color: #22d1ad;
 	display: block;
 	padding: 10px 100px 10px 100px;
@@ -31,7 +31,7 @@
 }
 
 canvas { 
-	margin: 0 auto;
+	margin: 15px auto;
     display: block;
 	/*border: 1px solid black; */
 }
@@ -74,4 +74,7 @@ input {
 	justify-content: space-between;
 }
 
+#t_2_container {
+	visibility: hidden;
+}
 
