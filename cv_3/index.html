@@ -17,12 +17,24 @@
 				<option value = 'upThresh'> up </option>
 				<option value = 'rangeThresh'> range </option>
 			</select>
+			<select id = "blockSelect"> 
+				<option value = '2'> 2 </option>
+				<option value = '3'> 3 </option>
+				<option value = '4'> 4 </option>
+				<option value = '5'> 5 </option>
+			</select>
 			<p class = "ranges">  &nbsp &nbsp threshold  &nbsp &nbsp &nbsp <input type="range" min="0" max="255" step="1" value="100" id ="threshold_1" oninput = "threshold_change()"> &nbsp &nbsp &nbsp </p>
 			<p class = "ranges" id = "t_2_container">  &nbsp &nbsp threshold 2 &nbsp &nbsp &nbsp <input type="range" min="0" max="255" step="1" value="100" id ="threshold_2" oninput = "threshold_change()"> &nbsp &nbsp &nbsp </p>
+			<p class = "ranges">  &nbsp &nbsp quant levels &nbsp &nbsp &nbsp <input type="range" min="1" max="8" step="1" value="1" id ="quant" oninput = "quant_change()"> &nbsp &nbsp &nbsp </p>
 			<div class = "button_holder">
 				<div onclick = "toGrey()"> gray scale </div>
 				<div onclick = "threshold_change()"> threshold change </div>
 				<div onclick = "OtsuGlobal()"> otsu global </div>
+				<div onclick = "OtsuLocalSlice()"> otsu local slice </div>
+				<div onclick = "OtsuLocalBlock()"> otsu local block </div>
+				<div onclick = "OtsuIerarchical()"> otsu ierarchical </div>
+				<div onclick = "getImageBack()"> erase transformations </div>
+				<div onclick = "quantization()"> quantization </div>
 			</div>
 			<div id = "histo_container">
 			</div>

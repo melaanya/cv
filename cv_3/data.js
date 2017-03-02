@@ -26,18 +26,41 @@ function canvasInit(name) {
 	}
 }
 
-const histoGrayImage = (data, width, height) => {
+const histoGrayImageSlice = (data, len) => {
 	var b = new Array(256).fill(0);
 
 	// statistics
-	for (var i = 0; i < width; ++i) {
-		for (var j = 0; j < height; ++j) {
-			cur = (i * height + j) * 4;
+
+	for (var i = 0; i < len; i += 4) {
+		b[data[i]]++;
+	}
+
+	for (var i = 0; i < 256; ++i) {
+		b[i] = b[i] / len * 4;
+	}
+
+	return b;
+}
+
+const histoGrayImage = (data, start_i, start_j, width, height, size) => {
+	var b = new Array(256).fill(0);
+
+	// statistics
+	// console.log(start_i, start_j, width, height);
+
+	for (var i = start_i; i < width; ++i) {
+		for (var j = start_j; j < height; ++j) {
+			cur = (j * img_width + i) * 4;
+			// console.log(data[cur]);
+			// data[cur] = 255;
+			// data[cur + 1] = 0;
+			// data[cur + 2] = 0;
 			b[data[cur]]++;
 		}
 	}
+
 	for (var i = 0; i < 256; ++i) {
-		b[i] = b[i] / width / height;
+		b[i] = b[i] / size;
 	}
 
 	return b;
@@ -46,7 +69,7 @@ const histoGrayImage = (data, width, height) => {
 function greyScale(data) {
 	for (var i = 0; i < img_width; ++i) {
 		for (var j = 0; j < img_height; ++j) {
-			cur = (i * img_height + j) * 4;
+			cur = (j * img_width + i) * 4;
 			data[cur] = 0.3 * data[cur] + 0.59 * data[cur + 1] + 0.11 * data[cur + 2];
 			data[cur + 1] = data[cur];
 			data[cur + 2] = data[cur];
@@ -55,10 +78,11 @@ function greyScale(data) {
 	return data;
 }
 
-function binThreshold(fun, data, t1, t2) {
-	for (var i = 0; i < img_width; ++i) {
-		for (var j = 0; j < img_height; ++j) {
-			cur = (i * img_height + j) * 4;
+function binThreshold(fun, data, start_i, start_j, width, height, t1, t2) {
+
+	for (var i = start_i; i < width; ++i) {
+		for (var j = start_j; j < height; ++j) {
+			cur = (j * img_width + i) * 4;
 			// console.log(data[cur], fun(data[cur], t1, t2))
 			if (fun(data[cur], t1, t2)) {
 				data[cur] = 255;
@@ -70,6 +94,21 @@ function binThreshold(fun, data, t1, t2) {
 			data[cur + 1] = data[cur];
 			data[cur + 2] = data[cur];
 		}
+	}
+	return data;
+}
+
+function binPartThreshold(fun, data, len, t1, t2) {
+	for (var i = 0; i < len; i += 4) {
+		if (fun(data[i], t1, t2)) {
+				data[i] = 255;
+			}
+			else {
+				data[i] = 0;
+			}
+			// console.log(data[cur]);
+			data[i + 1] = data[i];
+			data[i + 2] = data[i];
 	}
 	return data;
 }
@@ -148,6 +187,7 @@ function upThresh(arg, t) {
 
 function threshold_change() {
 	getImageBack();
+	toGrey();
 	var canvas = document.getElementById("canvas");
 	var data_full = getData("canvas");
 	var data = data_full.data;
@@ -166,7 +206,7 @@ function threshold_change() {
 		thresh = Function("arg", "t", "return " + curFun +"(arg, t); ");
 	}
 	// console.log(thresh);
-	data = binThreshold(thresh, data, t1, t2);
+	data = binPartThreshold(thresh, data, img_width * img_height * 4, t1, t2);
 
 	ctx = canvas.getContext('2d');
 	ctx.putImageData(data_full, 0, 0);
@@ -184,7 +224,7 @@ function selectorOnChange(e) {
 }
 
 function Otsu(p) {
-	var max = Number.MIN_VALUE, ind_max = -1;
+	var max = 0, ind_max = 0;
 	var mu = 0;
 	for (var i = 0; i < 256; ++i) {
 		mu += i * p[i];
@@ -195,33 +235,112 @@ function Otsu(p) {
 
 	for (var t = 1; t < 256; ++t) {
 		var disp = q * (1 - q) * (mu1 - mu2) * (mu1 - mu2);
+		// console.log(disp);
 		if (disp > max) {
 			max = disp;
 			ind_max = t - 1;
 		} 
-		mu1 = (q * mu1 + t * p[t]) / (q + p[t]);
-		q += p[t];
-		mu2 = (mu - q * mu1) / (1 - q);
+		if (q + p[t] != 0) {
+			mu1 = (q * mu1 + t * p[t]) / (q + p[t]);
+			q += p[t];
+			mu2 = (mu - q * mu1) / (1 - q);
+		}
+		else {
+			continue;
+		}
 	}
 	return ind_max;
 }
 
 function OtsuGlobal() {
+	getImageBack();
+
 	var canvas = document.getElementById("canvas");
 	var data_full = getData("canvas");
 	var data = data_full.data;
 
-	var p = histoGrayImage(data, img_width, img_height);
+	var p = histoGrayImageSlice(data, img_width * img_height * 4);
 	// console.log(p);
 	var thr = Otsu(p);
 	var fun = Function("arg", "t", "return lowThresh(arg, t);");
 	console.log(fun);
 	console.log(typeof thr);
 
-	data = binThreshold(fun, data, thr);
+	data = binPartThreshold(fun, data, img_width * img_height * 4, thr);
 
 	ctx = canvas.getContext('2d');
 	ctx.putImageData(data_full, 0, 0);
+}
+
+function OtsuLocalSlice() {
+	var canvas = document.getElementById("canvas");
+	var data_full = getData("canvas");
+	var data = data_full.data;
+
+	var sel = document.getElementById("blockSelect");
+	var curNum = parseInt(sel.options[sel.selectedIndex].value);
+
+	var blockSize = data.length / curNum;
+	var fun = Function("arg", "t", "return lowThresh(arg, t);");
+
+	for (var i = 0; i < curNum; ++i) {
+		var data_part = data.slice(i * blockSize, (i + 1) * blockSize);
+		var p = histoGrayImageSlice(data_part, blockSize);
+		var thr = Otsu(p);
+		console.log(thr);
+		data_part = binPartThreshold(fun, data_part, blockSize, thr);
+		for (var j = i * blockSize; j < (i + 1) * blockSize; ++j) {
+			data[j] = data_part[j - i * blockSize];
+		}
+	}
+
+	ctx = canvas.getContext('2d');
+	ctx.putImageData(data_full, 0, 0);
+}
+
+function OtsuLocalBlock() {
+	var canvas = document.getElementById("canvas");
+	var data_full = getData("canvas");
+	var data = data_full.data;
+
+	var sel = document.getElementById("blockSelect");
+	var level = parseInt(sel.options[sel.selectedIndex].value);
+
+	var width_len = Math.floor(img_width / level);
+	var height_len = Math.floor(img_height / level);
+	var fun = Function("arg", "t", "return lowThresh(arg, t);");
+
+	// console.log(width_len, height_len);
+	// console.log(curNum);
+
+	for (var i = 0; i < level; ++i) {
+		for (var j = 0; j < level; ++j) {
+			var start_i = i * width_len;
+			var start_j = j * height_len;
+			// console.log(start_i, start_j, width_len * (i + 1), height_len * (j + 1), width_len * height_len);
+			var p = histoGrayImage(data, start_i, start_j, width_len * (i + 1), height_len * (j + 1), width_len * height_len);
+			// console.log(p);
+			var thr = Otsu(p);
+			// console.log(thr);
+			data = binThreshold(fun, data, start_i, start_j, width_len  * (i + 1), height_len * (j + 1), thr);
+		}
+	}
+
+	ctx = canvas.getContext('2d');
+	ctx.putImageData(data_full, 0, 0);
+}
+
+function OtsuIerarchical() {
+
+}
+
+
+function quantization() {
+	var canvas = document.getElementById("canvas");
+	var data_full = getData("canvas");
+	var data = data_full.data;
+
+
 }
 
 function init() {

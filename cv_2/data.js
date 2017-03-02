@@ -1,5 +1,6 @@
 var background = "#FFE5B4";
 var background_histo = "#FFFFFF";
+var pencil = "#000000";
 
 var img_width = 0; 
 var img_height = 0;
@@ -7,6 +8,9 @@ var gl_c = 0, gl_gamma = 0;
 
 var histo_width = 300;
 var histo_height = 150;
+
+var inter_side = 255;
+var dot_arr = [[0, 255], [255, 0]];
 
 var data_copy = [];
 
@@ -32,7 +36,6 @@ function histoEqualization(data) {
 	for (var i = 1; i < 256; ++i) {
 		h[i] = h[i - 1] + h[i];
 	}
-
 	for (var i = 0; i < img_width; ++i) {
 		for (var j = 0; j < img_height; ++j) {
 			cur = (i * img_height + j) * 4;
@@ -325,8 +328,11 @@ function brightnessChange(data_full, fun) {
 			else if (fun.length == 3) { // if gamma transformation
 				hsv[2] = fun(hsv[2], gl_c, gl_gamma);
 			}
-			else {
+			else if (fun.length == 2) {
 				hsv[2] = fun(hsv[2], gl_c);
+			}
+			else {
+				hsv[2] = fun(hsv[2]);
 			}
 			var rgb = HSVtoRGB(hsv[0], hsv[1], hsv[2]);
 			data[cur] = rgb[0];
@@ -342,7 +348,7 @@ function linear(arg, min, max, c) {
 	return  c * (arg - min) / (max - min) + min;
 }
 
-function logTrans(arg, c) {  // TODO: add parameter c
+function logTrans(arg, c) {  
 	return c * Math.log(arg + 1);  // c = 25 - visible
 }
 
@@ -439,6 +445,125 @@ function correctionWithBaseColor() {
 function removeEvents() {
 	var canvas_correct = document.getElementById("canvas_correct");
 	canvas_correct.removeEventListener('mousedown', getPixelCanvas);
+}
+
+function initial_position(color) {
+	var inter = document.getElementById("interactive_line");
+	var ctx = inter.getContext('2d');
+	ctx.fillStyle = color;
+
+	for (var i = 0; i < inter_side; ++i) {
+		ctx.fillRect(i, inter_side - i, 1, 1);
+	}
+}
+
+function pairCompare(a, b) {
+	if ((a[0] < b[0]) || ((a[0] == b[0]) && (a[1] < b[1]))) {
+		return -1;
+	}
+	else if ((a[0] == b[0]) && (a[1] == b[1])) {
+		return 0;
+	}
+	else return 1;
+
+}
+
+function redraw(ev) {
+	left = 0;
+	right = 2;
+	if (ev.button === left) {
+		redraw_left(ev);
+	}
+	else if (ev.button === right) {
+		redraw_right(ev);
+	}
+}
+
+function redraw_right(ev) {
+	var canvas = document.getElementById("interactive_line");
+	var ctx = inter.getContext('2d');
+	ctx.fillStyle = background_histo;
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+	dot_arr = [[0, 255], [255, 0]];
+	initial_position("rgba(122, 122, 122, 122)"); // basic line
+
+	getImageBack();
+}
+
+function redraw_left(ev) {
+	var canvas = document.getElementById("interactive_line");
+	var ctx = inter.getContext('2d');
+
+	var curX = ev.pageX - canvas.offsetLeft;
+	var curY = ev.pageY - canvas.offsetTop;
+	var coord = [curX, curY];
+	dot_arr.push(coord);
+	dot_arr.sort(pairCompare);
+
+	ctx.fillStyle = background_histo;
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+	initial_position("rgba(122, 122, 122, 122)"); // basic line
+
+	ctx.beginPath();
+	ctx.moveTo(dot_arr[0][0], dot_arr[0][1]);
+	for (var i = 1; i < dot_arr.length; ++i) {
+		ctx.lineTo(dot_arr[i][0], dot_arr[i][1]);
+	}
+	ctx.stroke();
+
+	// preparing for function building
+	for (var i = 0; i < dot_arr.length - 1; ++i) {
+		dot_arr[i][1] = inter_side - dot_arr[i][1];
+	}
+
+	var fun_txt = "";
+	for (var i = 0; i < dot_arr.length - 1; ++i) {
+		if (dot_arr[i + 1][0] == dot_arr[i][0]) {
+			continue;
+		}
+		var k = (dot_arr[i + 1][1] - dot_arr[i][1]) / (dot_arr[i + 1][0] - dot_arr[i][0]);
+		var b = dot_arr[i][1] - dot_arr[i][0] * k;
+		fun_txt += "if ((x >= " + dot_arr[i][0] + ") && (x <= " + dot_arr[i + 1][0] + ")) { return " + k + " * x + " + b + "; } \n";
+	}
+	console.log(fun_txt);
+
+	var fun = Function("x", fun_txt);
+
+	var canvas_image = document.getElementById("canvas_spoiled");
+	var data_full = getData("canvas_spoiled");
+	data_full = brightnessChange(data_full, fun);
+
+	ctx_image = canvas_image.getContext('2d');
+	ctx_image.putImageData(data_full, 0, 0);
+
+	// back for drawing
+	for (var i = 0; i < dot_arr.length - 1; ++i) {
+		dot_arr[i][1] = inter_side - dot_arr[i][1];
+	}
+
+}
+
+function interactive() {
+	inter = document.createElement('canvas');
+	inter.setAttribute('height', inter_side);
+	inter.setAttribute('width', inter_side);
+	inter.setAttribute('class', 'interactive');
+	inter.setAttribute('id', 'interactive_line');
+
+	inter_ctx = inter.getContext('2d');
+	inter_ctx.fillStyle = background_histo;
+	inter_ctx.fillRect(0, 0, inter.width, inter.height);
+	inter_ctx.fillStyle = pencil;
+
+	inter.addEventListener('mousedown', redraw, false);
+
+	container = document.getElementById("histo_container");
+	container.appendChild(inter);
+
+	initial_position(pencil);
+
 }
 
 function init() {
