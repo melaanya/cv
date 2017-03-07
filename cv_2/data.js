@@ -447,8 +447,8 @@ function removeEvents() {
 	canvas_correct.removeEventListener('mousedown', getPixelCanvas);
 }
 
-function initial_position(color) {
-	var inter = document.getElementById("interactive_line");
+function initial_position(color, name) {
+	var inter = document.getElementById(name);
 	var ctx = inter.getContext('2d');
 	ctx.fillStyle = color;
 
@@ -480,19 +480,51 @@ function redraw(ev) {
 }
 
 function redraw_right(ev) {
-	var canvas = document.getElementById("interactive_line");
+	var canvas = document.getElementById(ev.target.id);
 	var ctx = inter.getContext('2d');
 	ctx.fillStyle = background_histo;
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
 
 	dot_arr = [[0, 255], [255, 0]];
-	initial_position("rgba(122, 122, 122, 122)"); // basic line
+	initial_position("rgba(122, 122, 122, 122)", ev.target.id); // basic line
 
 	getImageBack();
 }
 
+function interpolate(arg, x, y, size) {
+	var res = 0;
+	for (var i = 0; i < size; i++)
+	{
+		var basics_pol = 1;
+		for (var j = 0; j < size; j++)
+		{
+			if (j == i) 
+				continue;
+			basics_pol *= (arg - x[j])/(x[i] - x[j]);		
+		}
+		res += basics_pol * y[i];
+	}
+	return res;
+}
+
+function brigthnessWithInterpolation(data, x_values, y_values) {
+	for (var i = 0; i < img_width; ++i) {
+		for (var j = 0; j < img_height; ++j) {
+			cur = (i * img_height + j) * 4;
+			var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
+			hsv[2] = interpolate(hsv[2], x_values, y_values, x_values.length);
+			var rgb = HSVtoRGB(hsv[0], hsv[1], hsv[2]);
+			data[cur] = rgb[0];
+			data[cur + 1] = rgb[1];
+			data[cur + 2] = rgb[2];
+		}
+	}
+
+	return data;
+}
+
 function redraw_left(ev) {
-	var canvas = document.getElementById("interactive_line");
+	var canvas = document.getElementById(ev.target.id);
 	var ctx = inter.getContext('2d');
 
 	var curX = ev.pageX - canvas.offsetLeft;
@@ -504,48 +536,76 @@ function redraw_left(ev) {
 	ctx.fillStyle = background_histo;
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-	initial_position("rgba(122, 122, 122, 122)"); // basic line
-
-	ctx.beginPath();
-	ctx.moveTo(dot_arr[0][0], dot_arr[0][1]);
-	for (var i = 1; i < dot_arr.length; ++i) {
-		ctx.lineTo(dot_arr[i][0], dot_arr[i][1]);
-	}
-	ctx.stroke();
-
-	// preparing for function building
-	for (var i = 0; i < dot_arr.length - 1; ++i) {
-		dot_arr[i][1] = inter_side - dot_arr[i][1];
-	}
-
-	var fun_txt = "";
-	for (var i = 0; i < dot_arr.length - 1; ++i) {
-		if (dot_arr[i + 1][0] == dot_arr[i][0]) {
-			continue;
-		}
-		var k = (dot_arr[i + 1][1] - dot_arr[i][1]) / (dot_arr[i + 1][0] - dot_arr[i][0]);
-		var b = dot_arr[i][1] - dot_arr[i][0] * k;
-		fun_txt += "if ((x >= " + dot_arr[i][0] + ") && (x <= " + dot_arr[i + 1][0] + ")) { return " + k + " * x + " + b + "; } \n";
-	}
-	console.log(fun_txt);
-
-	var fun = Function("x", fun_txt);
-
 	var canvas_image = document.getElementById("canvas_spoiled");
 	var data_full = getData("canvas_spoiled");
-	data_full = brightnessChange(data_full, fun);
+	var data = data_full.data;
+
+
+	initial_position("rgba(122, 122, 122, 122)", ev.target.id); // basic line
+
+	if (ev.target.id == 'interactive_line') {
+		ctx.beginPath();
+		ctx.moveTo(dot_arr[0][0], dot_arr[0][1]);
+		for (var i = 1; i < dot_arr.length; ++i) {
+			ctx.lineTo(dot_arr[i][0], dot_arr[i][1]);
+		}
+		ctx.stroke();
+
+		// preparing for function building
+		for (var i = 0; i < dot_arr.length - 1; ++i) {
+			dot_arr[i][1] = inter_side - dot_arr[i][1];
+		}
+
+		var fun_txt = "";
+		for (var i = 0; i < dot_arr.length - 1; ++i) {
+			if (dot_arr[i + 1][0] == dot_arr[i][0]) {
+				continue;
+			}
+			var k = (dot_arr[i + 1][1] - dot_arr[i][1]) / (dot_arr[i + 1][0] - dot_arr[i][0]);
+			var b = dot_arr[i][1] - dot_arr[i][0] * k;
+			fun_txt += "if ((x >= " + dot_arr[i][0] + ") && (x <= " + dot_arr[i + 1][0] + ")) { return " + k + " * x + " + b + "; } \n";
+		}
+
+		var fun = Function("x", fun_txt);
+		data_full = brightnessChange(data_full, fun);
+
+		// back for drawing
+		for (var i = 0; i < dot_arr.length - 1; ++i) {
+			dot_arr[i][1] = inter_side - dot_arr[i][1];
+		}
+	} else {
+		var x_values = [];
+		var y_values = [];
+
+		for (var i = 0; i < dot_arr.length; ++i) {
+			x_values.push(dot_arr[i][0]);
+			y_values.push(dot_arr[i][1]);
+		}
+		// console.log(dot_arr);
+		// beautiful drawing
+		for (var i = 0; i < dot_arr.length - 1; ++i) {
+			var step = 0.05;
+			for (var j = x_values[i]; j < x_values[i + 1]; j += step) {
+				var curY = interpolate(j, x_values, y_values, dot_arr.length);
+				// console.log(curY);
+				ctx.fillRect(j, curY, 1, 1);
+			}
+		}
+
+		ctx.fillStyle = "#ff0000";
+		for (var i = 0; i < dot_arr.length - 1; ++i) {
+			ctx.fillRect(dot_arr[i][0], dot_arr[i][1], 3, 3);
+		}
+
+		// image changing
+		data = brigthnessWithInterpolation(data, x_values, y_values);
+	}
 
 	ctx_image = canvas_image.getContext('2d');
 	ctx_image.putImageData(data_full, 0, 0);
-
-	// back for drawing
-	for (var i = 0; i < dot_arr.length - 1; ++i) {
-		dot_arr[i][1] = inter_side - dot_arr[i][1];
-	}
-
 }
 
-function interactive() {
+function interactive() { // todo: combine with interactive_spline
 	inter = document.createElement('canvas');
 	inter.setAttribute('height', inter_side);
 	inter.setAttribute('width', inter_side);
@@ -563,7 +623,27 @@ function interactive() {
 	container.appendChild(inter);
 
 	initial_position(pencil);
+}
 
+function interactive_spline() {
+	inter = document.createElement('canvas');
+	inter.setAttribute('height', inter_side);
+	inter.setAttribute('width', inter_side);
+	inter.setAttribute('class', 'interactive');
+	console.log(this);
+	inter.setAttribute('id', 'interactive_spline');
+
+	inter_ctx = inter.getContext('2d');
+	inter_ctx.fillStyle = background_histo;
+	inter_ctx.fillRect(0, 0, inter.width, inter.height);
+	inter_ctx.fillStyle = pencil;
+
+	inter.addEventListener('mousedown', redraw, false);
+
+	container = document.getElementById("histo_container");
+	container.appendChild(inter);
+
+	initial_position(pencil, 'interactive_spline');
 }
 
 function init() {
