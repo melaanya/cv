@@ -26,6 +26,61 @@ function canvasInit(name) {
 	}
 }
 
+function RGBtoHSV (r, g, b) {
+	var max = Math.max(r, g, b);
+	var min = Math.min(r, g, b);
+
+	v = max;
+	s = 0;
+	if (max != 0) {
+		s = 1 - min / max;
+	}
+
+	h = 0;
+	if (max == min) {
+		return [h, s, v]
+	}
+	else {
+		if (max == r) {
+			h = 60 * (g - b) / (max - min);
+			if (g < b) {
+				h += 360;
+			}
+		}
+		else if (max == g) {
+			h = 60 * (b - r) / (max - min) + 120;
+		}
+		else {
+			h = 60 * (r - g) / (max - min) + 240;
+		}
+
+		return [h, s, v];
+	}
+}
+
+
+function HSVtoRGB(h, s, v) {
+	h_i = Math.floor(h / 60) % 6;
+	f = h / 60 - Math.floor(h / 60);
+	p = v * (1 - s);
+	q = v * (1 - f *s);
+	t = v * (1 - (1 - f) * s);
+	switch (h_i) {
+		case 0:
+			return [v, t, p];
+		case 1: 
+			return [q, v, p];
+		case 2:
+			return [p, v, t];
+		case 3:
+			return [p, q, v];
+		case 4:
+			return [t, p, v];
+		case 5:
+			return [v, p, q];
+	}
+}
+
 const histoGrayImageSlice = (data, len) => {
 	var b = new Array(256).fill(0);
 
@@ -51,10 +106,6 @@ const histoGrayImage = (data, start_i, start_j, width, height, size) => {
 	for (var i = start_i; i < width; ++i) {
 		for (var j = start_j; j < height; ++j) {
 			cur = (j * img_width + i) * 4;
-			// console.log(data[cur]);
-			// data[cur] = 255;
-			// data[cur + 1] = 0;
-			// data[cur + 2] = 0;
 			b[data[cur]]++;
 		}
 	}
@@ -260,11 +311,8 @@ function OtsuGlobal() {
 	var data = data_full.data;
 
 	var p = histoGrayImageSlice(data, img_width * img_height * 4);
-	// console.log(p);
 	var thr = Otsu(p);
 	var fun = Function("arg", "t", "return lowThresh(arg, t);");
-	console.log(fun);
-	console.log(typeof thr);
 
 	data = binPartThreshold(fun, data, img_width * img_height * 4, thr);
 
@@ -287,7 +335,6 @@ function OtsuLocalSlice() {
 		var data_part = data.slice(i * blockSize, (i + 1) * blockSize);
 		var p = histoGrayImageSlice(data_part, blockSize);
 		var thr = Otsu(p);
-		console.log(thr);
 		data_part = binPartThreshold(fun, data_part, blockSize, thr);
 		for (var j = i * blockSize; j < (i + 1) * blockSize; ++j) {
 			data[j] = data_part[j - i * blockSize];
@@ -310,18 +357,12 @@ function OtsuLocalBlock() {
 	var height_len = Math.floor(img_height / level);
 	var fun = Function("arg", "t", "return lowThresh(arg, t);");
 
-	// console.log(width_len, height_len);
-	// console.log(curNum);
-
 	for (var i = 0; i < level; ++i) {
 		for (var j = 0; j < level; ++j) {
 			var start_i = i * width_len;
 			var start_j = j * height_len;
-			// console.log(start_i, start_j, width_len * (i + 1), height_len * (j + 1), width_len * height_len);
 			var p = histoGrayImage(data, start_i, start_j, width_len * (i + 1), height_len * (j + 1), width_len * height_len);
-			// console.log(p);
 			var thr = Otsu(p);
-			// console.log(thr);
 			data = binThreshold(fun, data, start_i, start_j, width_len  * (i + 1), height_len * (j + 1), thr);
 		}
 	}
@@ -330,17 +371,115 @@ function OtsuLocalBlock() {
 	ctx.putImageData(data_full, 0, 0);
 }
 
-function OtsuIerarchical() {
 
+function getBlockStatistics(data, start_i, start_j, width, height, size) {
+	var med_intensity = 0;
+	var curMistake = 0;
+	for (var i = start_i; i < width; ++i) {
+		for (var j = start_j; j < height; ++j) {
+			cur = (j * img_width + i) * 4;
+			var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
+			med_intensity += hsv[2];
+		}
+	}
+	med_intensity /= size;
+
+	for (var i = start_i; i < width; ++i) {
+		for (var j = start_j; j < height; ++j) {
+			cur = (j * img_width + i) * 4;
+			var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
+			curMistake += (hsv[2] - med_intensity) * (hsv[2] - med_intensity);
+		}
+	}
+
+	curMistake = Math.sqrt(curMistake);
+	return curMistake;
 }
 
-
-function quantization() {
+function OtsuIerarchical() {
 	var canvas = document.getElementById("canvas");
 	var data_full = getData("canvas");
 	var data = data_full.data;
 
+	var max_side = Math.max(img_width, img_height);
+	var best_med_square_error = Number.MAX_VALUE;
+	var best_level = -1;
+	var fun = Function("arg", "t", "return lowThresh(arg, t);");
 
+	for (var level = 2; level < Math.sqrt(max_side); level *= 2) {  // Math.sqrt(min_side) 
+		var width_len = Math.floor(img_width / level);
+		var height_len = Math.floor(img_height / level);
+
+		var med_square_error = 0;
+		for (var i = 0; i < level; ++i) {
+			for (var j = 0; j < level; ++j) {
+				var start_i = i * width_len;
+				var start_j = j * height_len;
+				var curMistake = getBlockStatistics(data, start_i, start_j, width_len * (i + 1), height_len * (j + 1), width_len * height_len);
+				med_square_error += curMistake;
+			}
+		}
+		med_square_error /= (level * level);
+		if (med_square_error < best_med_square_error) {
+			best_med_square_error = med_square_error;
+			best_level = level;
+		}
+	}
+
+	console.log("best_level = ", best_level);
+
+	for (var i = 0; i < best_level; ++i) {
+		for (var j = 0; j < best_level; ++j) {
+			var start_i = i * width_len;
+			var start_j = j * height_len;
+			var p = histoGrayImage(data, start_i, start_j, width_len * (i + 1), height_len * (j + 1), width_len * height_len);
+			var thr = Otsu(p);
+			data = binThreshold(fun, data, start_i, start_j, width_len  * (i + 1), height_len * (j + 1), thr);
+		}
+	}
+	ctx = canvas.getContext('2d');
+	ctx.putImageData(data_full, 0, 0);
+}
+
+
+function quant_change() {
+	getImageBack();
+	quantization();
+}
+
+function quantization(qt) {
+	var canvas = document.getElementById("canvas");
+	var data_full = getData("canvas");
+	var data = data_full.data;
+
+	var qt = parseInt(document.getElementById("quant").value);
+	var qt_size = Math.ceil(256 / qt);
+
+	var colors = [];
+	var frequency = 0.7;
+	var amplitude = 127;
+	var center = 128;
+	for (var i = 0; i < qt; ++i)
+	{
+		red   = Math.sin(frequency*i + 0) * amplitude + center;
+		green = Math.sin(frequency*i + 2) * amplitude + center;
+		blue  = Math.sin(frequency*i + 4) * amplitude + center;
+		colors.push([red, green, blue]);
+	}
+
+	for (var i = 0; i < img_width; ++i) {
+		for (var j = 0; j < img_height; ++j) {
+			cur = (i * img_height + j) * 4;
+			var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
+			var temp = Math.floor(hsv[2] / qt_size);
+			data[cur] = colors[temp][0];
+			data[cur + 1] = colors[temp][1];
+			data[cur + 2] = colors[temp][2];
+		}
+	}
+	
+	ctx = canvas.getContext('2d');
+	ctx.putImageData(data_full, 0, 0);
 }
 
 function init() {
