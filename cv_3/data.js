@@ -372,28 +372,101 @@ function OtsuLocalBlock() {
 }
 
 
-function getBlockStatistics(data, start_i, start_j, width, height, size) {
+function getOtsuStatistics(data, mask) {
 	var med_intensity = 0;
-	var curMistake = 0;
-	for (var i = start_i; i < width; ++i) {
-		for (var j = start_j; j < height; ++j) {
-			cur = (j * img_width + i) * 4;
-			var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
-			med_intensity += hsv[2];
+	var med_square = 0;
+
+	var size =  img_width * img_height;
+
+	for (var i = 0; i < img_width; ++i) {
+		for (var j = 0; j < img_height; ++j) {
+			var mask_ind = j * img_width + i;
+			if (mask[mask_ind]) {
+				cur =  mask_ind * 4;
+				var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
+				med_intensity += hsv[2];
+				med_square += hsv[2] * hsv[2];
+			}
 		}
 	}
-	med_intensity /= size;
+	return Math.sqrt((med_square - med_intensity * med_intensity / size) / size);
+}
 
-	for (var i = start_i; i < width; ++i) {
-		for (var j = start_j; j < height; ++j) {
-			cur = (j * img_width + i) * 4;
-			var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
-			curMistake += (hsv[2] - med_intensity) * (hsv[2] - med_intensity);
+var colorCounter = 0;
+
+function IerchStep(data, mask, mistake, eps, colors){
+	if (mistake < eps) {
+		for (var i = 0; i < img_width; ++i) {
+			for (var j = 0; j < img_height; ++j) {
+				var mask_ind = j * img_width + i;
+				if (mask[mask_ind]) {
+					cur =  mask_ind * 4;
+					data[cur] = colors[colorCounter][0];
+					data[cur + 1] = colors[colorCounter][1];
+					data[cur + 2] = colors[colorCounter][2];
+				}
+			}
+		}
+		colorCounter++;
+		return data;
+	}
+	else {
+		stat = histoGrayImageIerch(data, mask);
+		thr = Otsu(stat);
+		var new_mask_black = getNewMask(data, mask, thr, 1);
+		var mistake_black = getOtsuStatistics(data, new_mask_black);
+
+		var new_mask_white = getNewMask(data, mask, thr, 0);
+		var mistake_white = getOtsuStatistics(data, new_mask_white);
+
+		data = IerchStep(data, new_mask_black, mistake_black, eps, colors);
+		data = IerchStep(data, new_mask_white, mistake_white, eps, colors);
+	}
+}
+
+// if flag then comparison on lesser
+function getNewMask(data, old_mask, thr, flag) {
+	var new_mask = new Array(img_height * img_width).fill(0);
+
+	for (var i = 0; i < img_width; ++i) {
+		for (var j = 0; j < img_height; ++j) {
+			var mask_ind = j * img_width + i;
+			if (old_mask[mask_ind]) {
+				cur =  mask_ind * 4;
+				var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
+				if (hsv[2] < thr && flag) {
+					new_mask[mask_ind] = 1;
+				}
+				if (hsv[2] > thr && !flag) {
+					new_mask[mask_ind] = 1;
+				}
+			}
+		}
+	}
+	return new_mask;
+}
+
+function histoGrayImageIerch(data, mask) {
+	var b = new Array(256).fill(0);
+
+	var size = mask.reduce(function (n, val) {
+		return n + (val === 1);
+	}, 0);
+
+	for (var i = 0; i < img_width; ++i) {
+		for (var j = 0; j < img_height; ++j) {
+			var mask_ind = j * img_width + i;
+			if (mask[mask_ind]) {
+				b[data[cur]]++;
+			}
 		}
 	}
 
-	curMistake = Math.sqrt(curMistake);
-	return curMistake;
+	for (var i = 0; i < 256; ++i) {
+		b[i] = b[i] / size;
+	}
+
+	return b;
 }
 
 function OtsuIerarchical() {
@@ -401,42 +474,30 @@ function OtsuIerarchical() {
 	var data_full = getData("canvas");
 	var data = data_full.data;
 
-	var max_side = Math.max(img_width, img_height);
-	var best_med_square_error = Number.MAX_VALUE;
-	var best_level = -1;
-	var fun = Function("arg", "t", "return lowThresh(arg, t);");
+	var eps = 15;
+	var mask = new Array(img_width * img_height).fill(1);
+	var curMistake = getOtsuStatistics(data, mask);
 
-	for (var level = 2; level < Math.sqrt(max_side); level *= 2) {  // Math.sqrt(min_side) 
-		var width_len = Math.floor(img_width / level);
-		var height_len = Math.floor(img_height / level);
+	console.log(curMistake);
 
-		var med_square_error = 0;
-		for (var i = 0; i < level; ++i) {
-			for (var j = 0; j < level; ++j) {
-				var start_i = i * width_len;
-				var start_j = j * height_len;
-				var curMistake = getBlockStatistics(data, start_i, start_j, width_len * (i + 1), height_len * (j + 1), width_len * height_len);
-				med_square_error += curMistake;
-			}
-		}
-		med_square_error /= (level * level);
-		if (med_square_error < best_med_square_error) {
-			best_med_square_error = med_square_error;
-			best_level = level;
-		}
+	// TODO: beatiful generation
+	var colors = [];
+	var frequency = 0.7;
+	var amplitude = 127;
+	var center = 128;
+	var colorsMaxSize = 32;
+
+	for (var i = 0; i < colorsMaxSize; ++i)
+	{
+		red   = Math.sin(frequency*i + 0) * amplitude + center;
+		green = Math.sin(frequency*i + 2) * amplitude + center;
+		blue  = Math.sin(frequency*i + 4) * amplitude + center;
+		colors.push([red, green, blue]);
 	}
 
-	console.log("best_level = ", best_level);
 
-	for (var i = 0; i < best_level; ++i) {
-		for (var j = 0; j < best_level; ++j) {
-			var start_i = i * width_len;
-			var start_j = j * height_len;
-			var p = histoGrayImage(data, start_i, start_j, width_len * (i + 1), height_len * (j + 1), width_len * height_len);
-			var thr = Otsu(p);
-			data = binThreshold(fun, data, start_i, start_j, width_len  * (i + 1), height_len * (j + 1), thr);
-		}
-	}
+	data = IerchStep(data, mask, curMistake, eps, colors);
+	
 	ctx = canvas.getContext('2d');
 	ctx.putImageData(data_full, 0, 0);
 }
