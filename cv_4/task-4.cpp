@@ -13,7 +13,8 @@ int main( int argc, char** argv )
   	{ 
   		return -1; 
   	}
-	// namedWindow( "Erosion 1", WINDOW_AUTOSIZE);
+	namedWindow("Erosion 1", WINDOW_NORMAL);
+	resizeWindow("Erosion 1", 300, 300);
 
 	// step 1: hole_ring creation, then erosion
 	Mat image1;
@@ -28,10 +29,14 @@ int main( int argc, char** argv )
 
 	erode(image, image1, hole_ring); 
 
+	imshow("image", image1);
+
 	// step 2: hole_mask creation, then dilatation
 	Mat image2;
 	Mat hole_mask = getStructuringElement(MORPH_ELLIPSE, Size(hole_size, hole_size), Point(-1, -1));
 	dilate(image1, image2, hole_mask);
+
+	imshow("image", image2);
 
 	// step 3: image OR image2
 	Mat image3;
