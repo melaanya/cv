@@ -375,14 +375,13 @@ function OtsuLocalBlock() {
 function getOtsuStatistics(data, mask) {
 	var med_intensity = 0;
 	var med_square = 0;
-
 	var size =  img_width * img_height;
 
 	for (var i = 0; i < img_width; ++i) {
 		for (var j = 0; j < img_height; ++j) {
 			var mask_ind = j * img_width + i;
 			if (mask[mask_ind]) {
-				cur =  mask_ind * 4;
+				var cur =  mask_ind * 4;
 				var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
 				med_intensity += hsv[2];
 				med_square += hsv[2] * hsv[2];
@@ -408,19 +407,34 @@ function IerchStep(data, mask, mistake, eps, colors){
 			}
 		}
 		colorCounter++;
-		return data;
 	}
 	else {
 		stat = histoGrayImageIerch(data, mask);
-		thr = Otsu(stat);
+		var thr = Otsu(stat);
+
 		var new_mask_black = getNewMask(data, mask, thr, 1);
 		var mistake_black = getOtsuStatistics(data, new_mask_black);
 
 		var new_mask_white = getNewMask(data, mask, thr, 0);
 		var mistake_white = getOtsuStatistics(data, new_mask_white);
 
-		data = IerchStep(data, new_mask_black, mistake_black, eps, colors);
-		data = IerchStep(data, new_mask_white, mistake_white, eps, colors);
+
+		var count_black = new_mask_black.reduce(function (n, val) {
+			return n + (val === 1);
+		}, 0);
+		var count_white = new_mask_white.reduce(function (n, val) {
+			return n + (val === 1);
+		}, 0);
+
+		if (count_black == 0) {
+			mistake_white = 0;
+		}
+		if (count_white == 0) {
+			mistake_black = 0;
+		}
+
+		IerchStep(data, new_mask_white, mistake_white, eps, colors);
+		IerchStep(data, new_mask_black, mistake_black, eps, colors);
 	}
 }
 
@@ -434,10 +448,10 @@ function getNewMask(data, old_mask, thr, flag) {
 			if (old_mask[mask_ind]) {
 				cur =  mask_ind * 4;
 				var hsv = RGBtoHSV(data[cur], data[cur + 1], data[cur + 2]);
-				if (hsv[2] < thr && flag) {
+				if (flag && hsv[2] < thr) {
 					new_mask[mask_ind] = 1;
 				}
-				if (hsv[2] > thr && !flag) {
+				if (!flag && hsv[2] > thr) {
 					new_mask[mask_ind] = 1;
 				}
 			}
@@ -456,12 +470,12 @@ function histoGrayImageIerch(data, mask) {
 	for (var i = 0; i < img_width; ++i) {
 		for (var j = 0; j < img_height; ++j) {
 			var mask_ind = j * img_width + i;
+			var cur = mask_ind * 4;
 			if (mask[mask_ind]) {
 				b[data[cur]]++;
 			}
 		}
 	}
-
 	for (var i = 0; i < 256; ++i) {
 		b[i] = b[i] / size;
 	}
@@ -469,34 +483,34 @@ function histoGrayImageIerch(data, mask) {
 	return b;
 }
 
+function colorMaking(size) {
+	var colors = [];
+	var frequency = 0.7;
+	var amplitude = 127;
+	var center = 128;
+	for (var i = 0; i < size; ++i)
+	{
+		red   = Math.sin(frequency * i + 0) * amplitude + center;
+		green = Math.sin(frequency * i + 2) * amplitude + center;
+		blue  = Math.sin(frequency * i + 4) * amplitude + center;
+		colors.push([red, green, blue]);
+	}
+	return colors;
+}
+
 function OtsuIerarchical() {
 	var canvas = document.getElementById("canvas");
 	var data_full = getData("canvas");
 	var data = data_full.data;
 
-	var eps = 15;
+	var eps = 40;
 	var mask = new Array(img_width * img_height).fill(1);
 	var curMistake = getOtsuStatistics(data, mask);
 
-	console.log(curMistake);
+	var colorsMaxSize = 100;
+	var colors = colorMaking(colorsMaxSize);
 
-	// TODO: beatiful generation
-	var colors = [];
-	var frequency = 0.7;
-	var amplitude = 127;
-	var center = 128;
-	var colorsMaxSize = 32;
-
-	for (var i = 0; i < colorsMaxSize; ++i)
-	{
-		red   = Math.sin(frequency*i + 0) * amplitude + center;
-		green = Math.sin(frequency*i + 2) * amplitude + center;
-		blue  = Math.sin(frequency*i + 4) * amplitude + center;
-		colors.push([red, green, blue]);
-	}
-
-
-	data = IerchStep(data, mask, curMistake, eps, colors);
+	IerchStep(data, mask, curMistake, eps, colors, 0);
 	
 	ctx = canvas.getContext('2d');
 	ctx.putImageData(data_full, 0, 0);
@@ -515,18 +529,8 @@ function quantization(qt) {
 
 	var qt = parseInt(document.getElementById("quant").value);
 	var qt_size = Math.ceil(256 / qt);
-
-	var colors = [];
-	var frequency = 0.7;
-	var amplitude = 127;
-	var center = 128;
-	for (var i = 0; i < qt; ++i)
-	{
-		red   = Math.sin(frequency*i + 0) * amplitude + center;
-		green = Math.sin(frequency*i + 2) * amplitude + center;
-		blue  = Math.sin(frequency*i + 4) * amplitude + center;
-		colors.push([red, green, blue]);
-	}
+	
+	var colors = colorMaking(qt);
 
 	for (var i = 0; i < img_width; ++i) {
 		for (var j = 0; j < img_height; ++j) {
