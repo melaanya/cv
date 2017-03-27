@@ -20,8 +20,11 @@ int main( int argc, char** argv )
 	Mat image1;
 	int hole_size = 96;
 	Mat small_ring(hole_size, hole_size, CV_8U, Scalar::all(0));
+
 	Mat part = small_ring(Range(1, hole_size - 1), Range(1, hole_size - 1));
+
 	Mat big_ring = getStructuringElement(MORPH_ELLIPSE, Size(hole_size, hole_size), Point(-1, -1));
+	
 	Mat small_ring_temp = getStructuringElement(MORPH_ELLIPSE, Size(hole_size - 2, hole_size - 2), Point(-1, -1));
 	small_ring_temp.copyTo(part);
 	Mat hole_ring;
@@ -36,7 +39,9 @@ int main( int argc, char** argv )
 	Mat hole_mask = getStructuringElement(MORPH_ELLIPSE, Size(hole_size, hole_size), Point(-1, -1));
 	dilate(image1, image2, hole_mask);
 
-	imshow("image", image2);
+	namedWindow("Erosion 2", WINDOW_NORMAL);
+	resizeWindow("Erosion 2", 300, 300);
+	imshow("Erosion 2", image2);
 
 	// step 3: image OR image2
 	Mat image3;

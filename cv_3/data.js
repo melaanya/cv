@@ -418,7 +418,6 @@ function IerchStep(data, mask, mistake, eps, colors){
 		var new_mask_white = getNewMask(data, mask, thr, 0);
 		var mistake_white = getOtsuStatistics(data, new_mask_white);
 
-
 		var count_black = new_mask_black.reduce(function (n, val) {
 			return n + (val === 1);
 		}, 0);
@@ -503,7 +502,9 @@ function OtsuIerarchical() {
 	var data_full = getData("canvas");
 	var data = data_full.data;
 
-	var eps = 40;
+	var sel = document.getElementById("mistakeSelect");
+	var eps = parseInt(sel.options[sel.selectedIndex].value);
+	console.log(eps);
 	var mask = new Array(img_width * img_height).fill(1);
 	var curMistake = getOtsuStatistics(data, mask);
 
