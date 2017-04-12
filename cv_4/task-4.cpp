@@ -8,7 +8,7 @@ using namespace std;
 
 int main( int argc, char** argv )
 {
-	Mat image = imread("wheel.png");
+	Mat image = imread("wheel.png", IMREAD_GRAYSCALE);
 	if( !image.data )
   	{ 
   		return -1; 

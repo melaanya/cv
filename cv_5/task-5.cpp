@@ -8,8 +8,6 @@
 using namespace cv;
 using namespace std;
 
-const int filter_const = 230;
-
 
 Mat processDft(Mat img) {
 	int M = getOptimalDFTSize( img.rows );
@@ -42,14 +40,14 @@ void turnImage(Mat img) {
 }
 
 
-Mat visualizateSpectrum(Mat complexImg, bool flag, bool flag_2) {
+Mat visualizateSpectrum(Mat complexImg, bool turnNeed, bool showImage) {
 	 //    // compute log(1 + sqrt(Re(DFT(img))**2 + Im(DFT(img))**2))
 	Mat planes[2];
     split(complexImg, planes);
     magnitude(planes[0], planes[1], planes[0]);
     Mat mag = planes[0];
     mag += Scalar::all(1);
-    if (flag_2) {
+    if (showImage) {
     	log(mag, mag);
     }
     
@@ -57,7 +55,7 @@ Mat visualizateSpectrum(Mat complexImg, bool flag, bool flag_2) {
     mag = mag(Rect(0, 0, mag.cols & -2, mag.rows & -2));
 
 	// instead of multiplying by (-1)^(x+y)
-	if (flag) {
+	if (turnNeed) {
 		turnImage(mag);
 	}
 
@@ -65,8 +63,8 @@ Mat visualizateSpectrum(Mat complexImg, bool flag, bool flag_2) {
     return mag;
 }
 
-Mat createLowPassFilter(int rows, int cols, int D0) {
-	Mat lowPass(rows, cols, CV_32F, 0.0);  // type?
+Mat createLowPassFilter(int rows, int cols, float D0) {
+	Mat lowPass(rows, cols, CV_32F, 0.0);  
 
  	for (int i = 0; i < rows; ++i) {
  		for (int j = 0; j < cols; ++j) {
@@ -78,17 +76,20 @@ Mat createLowPassFilter(int rows, int cols, int D0) {
 	return lowPass;
 }
 
-Mat createHighPassFilter(int rows, int cols, int D0) {
-	Mat lowPass(rows, cols, CV_32F, 0.0);  
+Mat createHighPassFilter(int rows, int cols, int D0, bool up, int a) {
+	Mat highPass(rows, cols, CV_32F, 0.0);  
 
  	for (int i = 0; i < rows; ++i) {
  		for (int j = 0; j < cols; ++j) {
  			if (sqrt((i - rows / 2) * (i - rows / 2) + (j - cols / 2) * (j - cols / 2)) > D0) {
- 				lowPass.at<float>(i, j) = 1.0;
+ 				highPass.at<float>(i, j) = 1.0;
+ 				if (up) {
+ 					highPass.at<float>(i, j) += a;
+ 				}
  			}
  		}
  	}
-	return lowPass;
+	return highPass;
 }
 
 Mat applyFilter(Mat dftImg, Mat filter) {
@@ -100,37 +101,20 @@ Mat applyFilter(Mat dftImg, Mat filter) {
 	return dftSmoothing;
 }
 
-
-int main( int argc, char** argv )
-{
-	Mat img = imread("skeleton.png", IMREAD_GRAYSCALE);
-	if( !img.data )
-  	{ 
-  		return -1; 
-  	}
-  	namedWindow("skeleton", WINDOW_NORMAL);
-	resizeWindow("skeleton", 300, 300);
-	imshow("skeleton", img);
-
-	// got dft Data and show the spectrum
-	Mat dftImage = processDft(img);
-	Mat visualDFT = visualizateSpectrum(dftImage, true, true);
-	namedWindow("spectrum", WINDOW_NORMAL);
-	resizeWindow("spectrum", 300, 300);
-	imshow("spectrum", visualDFT);
+Mat applyLowPassFilter(Mat dftImage, int filter_const) {
 
 	// create and show LowPassFilter
 	Mat lowPass = createLowPassFilter(dftImage.rows, dftImage.cols, filter_const);
  	namedWindow("lowPassFilter", WINDOW_NORMAL);
-	resizeWindow("lowPassFilter", 300, 300);
 	imshow("lowPassFilter", lowPass);
+	moveWindow("lowPassFilter", 500, 50);
 
 	// apply filter to spectrum and show it
 	Mat dftSmoothing = applyFilter(dftImage, lowPass);
 	Mat visualDFTSmoothing = visualizateSpectrum(dftSmoothing, false, true);
 	namedWindow("spectrumLowPass", WINDOW_NORMAL);
-	resizeWindow("spectrumLowPass", 300, 300);
 	imshow("spectrumLowPass", visualDFTSmoothing);
+	moveWindow("spectrumLowPass", 800, 50);
 
 	// idft and show the result of smoothing
 	Mat smoothedImage;
@@ -138,24 +122,25 @@ int main( int argc, char** argv )
 	Mat resSmoothed = visualizateSpectrum(smoothedImage, false, false);
 
 	namedWindow("LowPassImage", WINDOW_NORMAL);
-	resizeWindow("LowPassImage", 300, 300);
 	imshow("LowPassImage", resSmoothed);
+	moveWindow("LowPassImage", 1100, 50);
 
+	return resSmoothed;
+}
 
-
+Mat applyHighPassFilter(Mat dftImage, int filter_const, bool up, float a) {
 	// create and show HighPassFilter
-	Mat highPass = createHighPassFilter(dftImage.rows, dftImage.cols, filter_const);
- 	namedWindow("lowPassFilter", WINDOW_NORMAL);
-	resizeWindow("lowPassFilter", 300, 300);
-	imshow("lowPassFilter", highPass);
+	Mat highPass = createHighPassFilter(dftImage.rows, dftImage.cols, filter_const, up, a);
+ 	namedWindow("highPassFilter", WINDOW_NORMAL);
+	imshow("highPassFilter", highPass);
+	moveWindow("highPassFilter", 500, 50);
 
 	// apply filter to spectrum and show it
 	Mat dftBordering = applyFilter(dftImage, highPass);
 	Mat visualDFTBordering = visualizateSpectrum(dftBordering, false, true);
 	namedWindow("spectrumHighPass", WINDOW_NORMAL);
-	resizeWindow("spectrumHighPass", 300, 300);
 	imshow("spectrumHighPass", visualDFTBordering);
-
+	moveWindow("spectrumHighPass", 800, 50);
 
 	// idft and show the result of smoothing
 	Mat borderedImage;
@@ -163,8 +148,62 @@ int main( int argc, char** argv )
 	Mat resBordered = visualizateSpectrum(borderedImage, false, false);
 
 	namedWindow("HighPassImage", WINDOW_NORMAL);
-	resizeWindow("HighPassImage", 300, 300);
 	imshow("HighPassImage", resBordered);
+	moveWindow("HighPassImage", 1100, 50);
+
+	return resBordered;
+}
+
+
+	// нерезкое маскирование
+void smooth_masking(Mat img, Mat lowPassImg) {
+	img.convertTo(img, CV_32F);
+	Mat mask = img - lowPassImg * 255;
+	normalize(mask, mask, 0, 255, NORM_MINMAX);
+	mask.convertTo(mask, CV_8U);
+
+	namedWindow("smooth_masking", WINDOW_NORMAL);
+	imshow("smooth_masking", mask);
+	moveWindow("smooth_masking", 700, 50);
+}
+
+
+int main( int argc, char** argv )
+{
+	int filter_const = 150;
+
+	if (argc > 1) {
+		sscanf (argv[1], "%d", &filter_const);
+		cout << "new d0 = " << filter_const << endl;
+	}
+
+	Mat img = imread("skeleton.png", IMREAD_GRAYSCALE);
+	if( !img.data )
+  	{ 
+  		return -1; 
+  	}
+  	namedWindow("skeleton", WINDOW_NORMAL);
+	imshow("skeleton", img);
+	moveWindow("skeleton", 0, 50);
+
+
+	// got dft Data and show the spectrum
+	Mat dftImage = processDft(img);
+	Mat visualDFT = visualizateSpectrum(dftImage, true, true);
+	namedWindow("spectrum", WINDOW_NORMAL);
+	imshow("spectrum", visualDFT);
+	moveWindow("spectrum", 200, 50);
+
+
+	// Mat tmpLowPassImg = applyLowPassFilter(dftImage, filter_const);
+	// Mat lowPassImg = tmpLowPassImg(Rect(0, 0, img.cols, img.rows));
+	// smooth_masking(img, lowPassImg);
+
+	Mat tmpHighPassImg = applyHighPassFilter(dftImage, filter_const, true, 200);
+	Mat highPassImg = tmpHighPassImg(Rect(0, 0, img.cols, img.rows));
+	
+
+
 	waitKey(0);
 	return 0; 
 }
